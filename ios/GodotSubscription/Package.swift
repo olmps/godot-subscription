@@ -27,6 +27,8 @@ let package = Package(
             dependencies: [
                                         "SwiftGodot",
                                         .product(name: "RevenueCat", package: "purchases-ios-spm"),
+                                        .product(name: "RevenueCatUI", package: "purchases-ios-spm"),
+                                        
                                     ],
                                     swiftSettings: [.unsafeFlags(["-suppress-warnings"])]
         ),

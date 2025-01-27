@@ -1,8 +1,10 @@
 // The Swift Programming Language
 // https://docs.swift.org/swift-book
 import Foundation
+import UIKit
 import SwiftGodot
 import RevenueCat
+import RevenueCatUI
 
 #initSwiftExtension(cdecl: "swift_entry_point", types: [GodotSubscription.self])
 
@@ -11,6 +13,8 @@ class GodotSubscription: RefCounted {
     #signal("productsOutput", arguments: ["event": String.self, "data": String.self])
     #signal("purchaseOutput", arguments: ["event": String.self])
     #signal("entitlementOutput", arguments: ["event": String.self])
+    #signal("presentPaywallOutput", arguments: ["event": String.self])
+
     
     @Callable
     func initialize(input: String) {
@@ -123,6 +127,44 @@ class GodotSubscription: RefCounted {
             } else {
                 self.emit(signal: signal, "purchase_failed")
                 return
+            }
+        }
+    }
+    
+    @Callable
+    func presentPaywall() {
+        let signal = SignalWith1Argument<String>("presentPaywallOutput")
+        
+        self.emit(signal: signal, "paywall_loading")
+        
+        // Fetch offerings and present the paywall
+        Purchases.shared.getOfferings { offerings, error in
+            if let error = error {
+                self.emit(signal: signal, "paywall_failed")
+                return
+            }
+            
+            guard let offerings = offerings,
+                  let currentOffering = offerings.current else {
+                self.emit(signal: signal, "paywall_failed")
+                return
+            }
+            
+            // Present PaywallViewController using RevenueCatUI
+            DispatchQueue.main.async {
+                if let rootViewController = UIApplication.shared.windows.first?.rootViewController {
+                    let paywallViewController = PaywallViewController(offering: currentOffering)
+                    
+                    // Optionally configure the presentation style
+                    paywallViewController.modalPresentationStyle = .formSheet
+                    
+                    // Present the paywall
+                    rootViewController.present(paywallViewController, animated: true) {
+                        self.emit(signal: signal, "paywall_presented")
+                    }
+                } else {
+                    self.emit(signal: signal, "paywall_failed")
+                }
             }
         }
     }
